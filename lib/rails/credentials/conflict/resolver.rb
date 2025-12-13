@@ -35,8 +35,8 @@ module Rails
             editor = ENV["EDITOR"] || "vim"
             system("#{editor} #{tempfile.path}")
 
-            tempfile.rewind
-            resolved_content = tempfile.read
+            # Read from disk after editor saves changes
+            resolved_content = File.read(tempfile.path)
 
             if resolved_content.include?("<<<<<<<") || resolved_content.include?(">>>>>>>")
               puts "Warning: Conflict markers still present. Please resolve all conflicts."
