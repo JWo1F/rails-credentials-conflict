@@ -41,8 +41,8 @@ This command decrypts both versions, opens them in your editor with git conflict
 rails credentials:conflict:resolve
 
 # For environment-specific credentials
-rails credentials:conflict:resolve -e staging
-rails credentials:conflict:resolve -e production
+rails credentials:conflict:resolve[staging]
+rails credentials:conflict:resolve[production]
 ```
 
 The command will:
@@ -70,7 +70,7 @@ To discard their changes and keep only your version:
 rails credentials:conflict:yours
 
 # For environment-specific credentials
-rails credentials:conflict:yours -e staging
+rails credentials:conflict:yours[staging]
 ```
 
 ### 3. Keep their version
@@ -82,7 +82,7 @@ To discard your changes and keep only their version:
 rails credentials:conflict:theirs
 
 # For environment-specific credentials
-rails credentials:conflict:theirs -e production
+rails credentials:conflict:theirs[production]
 ```
 
 ### 4. Keep base version
@@ -94,7 +94,7 @@ To keep the base version (shown in the middle section of 3-way diff):
 rails credentials:conflict:base
 
 # For environment-specific credentials
-rails credentials:conflict:base -e staging
+rails credentials:conflict:base[staging]
 ```
 
 ## How it works
@@ -119,14 +119,17 @@ It then:
   - `config/master.key` for main credentials
   - `config/credentials/<environment>.key` for environment-specific credentials
 
-## Environment Variable
+## Usage Notes
 
-You can use either `-e` flag or `ENVIRONMENT` environment variable:
+For environment-specific credentials, pass the environment name in square brackets:
 
 ```bash
-rails credentials:conflict:resolve -e staging
-# or
-ENVIRONMENT=staging rails credentials:conflict:resolve
+# Use square brackets for environment
+rails credentials:conflict:resolve[staging]
+rails credentials:conflict:yours[production]
+
+# Omit for main credentials
+rails credentials:conflict:resolve
 ```
 
 ## Development
