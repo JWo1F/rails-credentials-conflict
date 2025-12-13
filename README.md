@@ -30,7 +30,7 @@ bundle install
 
 ## Usage
 
-When you encounter a merge conflict in your credentials file, you have three options:
+When you encounter a merge conflict in your credentials file, you have four options:
 
 ### 1. Resolve conflicts manually
 
@@ -85,15 +85,28 @@ rails credentials:conflict:theirs
 rails credentials:conflict:theirs -e production
 ```
 
+### 4. Keep base version
+
+To keep the base version (shown in the middle section of 3-way diff):
+
+```bash
+# For main credentials
+rails credentials:conflict:base
+
+# For environment-specific credentials
+rails credentials:conflict:base -e staging
+```
+
 ## How it works
 
-The gem uses git's staging area to access both versions of the conflicted file:
+The gem uses git's staging area to access all versions of the conflicted file:
+- Stage 1 contains "base" (merge-base/common ancestor)
 - Stage 2 contains "ours" (your version)
 - Stage 3 contains "theirs" (their version)
 
 It then:
-1. Decrypts both versions using your local key file
-2. Performs the requested operation (merge, yours, or theirs)
+1. Decrypts the versions using your local key file
+2. Performs the requested operation (merge, yours, theirs, or base)
 3. Re-encrypts the result
 4. Stages the resolved file
 

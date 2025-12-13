@@ -51,16 +51,44 @@ module Rails
 
         def yours
           validate_git_conflict!
-          checkout_version(:ours)
+
+          ours_encrypted = get_git_version(:ours)
+          if ours_encrypted.empty?
+            raise Error, "No yours version found."
+          end
+
+          ours_content = decrypt_content(ours_encrypted)
+          save_encrypted_content(ours_content)
           cleanup_git_conflict
           puts "Kept your version of credentials."
         end
 
         def theirs
           validate_git_conflict!
-          checkout_version(:theirs)
+
+          theirs_encrypted = get_git_version(:theirs)
+          if theirs_encrypted.empty?
+            raise Error, "No theirs version found."
+          end
+
+          theirs_content = decrypt_content(theirs_encrypted)
+          save_encrypted_content(theirs_content)
           cleanup_git_conflict
           puts "Kept their version of credentials."
+        end
+
+        def base
+          validate_git_conflict!
+
+          base_encrypted = get_git_version(:base)
+          if base_encrypted.empty?
+            raise Error, "No base version found."
+          end
+
+          base_content = decrypt_content(base_encrypted)
+          save_encrypted_content(base_content)
+          cleanup_git_conflict
+          puts "Kept base version of credentials."
         end
 
         private
@@ -101,13 +129,15 @@ module Rails
 
         def get_git_version(version)
           # Get the content from git staging area
-          stage_number = version == :ours ? 2 : 3
-          `git show :#{stage_number}:#{credentials_path.relative_path_from(::Rails.root)}`.strip
-        end
+          # Stage 1 = base (merge-base), Stage 2 = ours, Stage 3 = theirs
+          stage_number = case version
+                         when :base then 1
+                         when :ours then 2
+                         when :theirs then 3
+                         else raise Error, "Unknown version: #{version}"
+                         end
 
-        def checkout_version(version)
-          flag = version == :ours ? "--ours" : "--theirs"
-          system("git checkout #{flag} #{credentials_path}")
+          `git show :#{stage_number}:#{credentials_path.relative_path_from(::Rails.root)} 2>/dev/null`.strip
         end
 
         def decrypt_content(encrypted_content)

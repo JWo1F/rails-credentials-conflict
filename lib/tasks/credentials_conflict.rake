@@ -21,5 +21,11 @@ namespace :credentials do
       environment = ENV["ENVIRONMENT"] || ENV["e"]
       Rails::Credentials::Conflict::Resolver.new(environment).theirs
     end
+
+    desc "Resolve credentials conflict by keeping base version"
+    task :base => :environment do
+      environment = ENV["ENVIRONMENT"] || ENV["e"]
+      Rails::Credentials::Conflict::Resolver.new(environment).base
+    end
   end
 end
