@@ -26,7 +26,7 @@ module Rails
             return
           end
 
-          merged_content = create_conflict_markers(ours_content, theirs_content)
+          merged_content = create_git_conflict_markers(ours_content, theirs_content)
 
           Tempfile.create(["credentials_conflict", ".yml"]) do |tempfile|
             tempfile.write(merged_content)
@@ -134,14 +134,70 @@ module Rails
           File.read(key_path).strip
         end
 
-        def create_conflict_markers(ours, theirs)
-          <<~CONFLICT
-            <<<<<<< HEAD (yours)
-            #{ours}
-            =======
-            #{theirs}
-            >>>>>>> MERGE_HEAD (theirs)
-          CONFLICT
+        def create_git_conflict_markers(ours_content, theirs_content)
+          base_content = get_base_version
+
+          with_temp_files(ours_content, base_content, theirs_content) do |ours_path, base_path, theirs_path|
+            # Create output tempfile for merged result
+            output = Tempfile.new(["merged", ".yml"])
+
+            begin
+              # Use git merge-file to create proper conflict markers
+              # Exit code 1 means conflicts exist, which is expected
+              system(
+                "git", "merge-file", "-p", "--diff3",
+                "-L", "HEAD (yours)",
+                "-L", "base",
+                "-L", "MERGE_HEAD (theirs)",
+                ours_path, base_path, theirs_path,
+                out: output.path,
+                err: File::NULL
+              )
+
+              output.rewind
+              output.read
+            ensure
+              output.close
+              output.unlink
+            end
+          end
+        end
+
+        def get_base_version
+          # Try to get the base/merge-base version (stage 1)
+          base_encrypted = `git show :1:#{credentials_path.relative_path_from(::Rails.root)} 2>/dev/null`.strip
+          return "" if base_encrypted.empty?
+
+          decrypt_content(base_encrypted)
+        rescue
+          # If base version doesn't exist or can't be decrypted, return empty
+          ""
+        end
+
+        def with_temp_files(ours, base, theirs)
+          ours_file = Tempfile.new(["ours", ".yml"])
+          base_file = Tempfile.new(["base", ".yml"])
+          theirs_file = Tempfile.new(["theirs", ".yml"])
+
+          begin
+            ours_file.write(ours)
+            ours_file.flush
+
+            base_file.write(base)
+            base_file.flush
+
+            theirs_file.write(theirs)
+            theirs_file.flush
+
+            yield ours_file.path, base_file.path, theirs_file.path
+          ensure
+            ours_file.close
+            ours_file.unlink
+            base_file.close
+            base_file.unlink
+            theirs_file.close
+            theirs_file.unlink
+          end
         end
 
         def cleanup_git_conflict
