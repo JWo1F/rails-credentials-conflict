@@ -30,10 +30,12 @@ module Rails
           end
 
           base_content = get_base_version
+          labels = @git_handler.get_merge_labels
           merge_result = @merge_strategy.create_conflict_markers(
             ours_content,
             base_content,
-            theirs_content
+            theirs_content,
+            labels: labels
           )
 
           if merge_result[:has_conflicts]

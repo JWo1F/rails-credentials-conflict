@@ -13,7 +13,7 @@ module Rails
           @encryption_service = encryption_service
         end
 
-        def create_conflict_markers(ours_content, base_content, theirs_content)
+        def create_conflict_markers(ours_content, base_content, theirs_content, labels:)
           with_temp_files(ours_content, base_content, theirs_content) do |ours_path, base_path, theirs_path|
             output = Tempfile.new(["merged", ".yml"])
 
@@ -24,9 +24,9 @@ module Rails
               # >1 = error
               merge_result = system(
                 "git", "merge-file", "-p", "--diff3",
-                "-L", "HEAD (yours)",
-                "-L", "base",
-                "-L", "MERGE_HEAD (theirs)",
+                "-L", labels[:ours],
+                "-L", labels[:base],
+                "-L", labels[:theirs],
                 ours_path, base_path, theirs_path,
                 out: output.path,
                 err: File::NULL
