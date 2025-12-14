@@ -18,7 +18,11 @@ module Rails
             output = Tempfile.new(["merged", ".yml"])
 
             begin
-              system(
+              # git merge-file exit codes:
+              # 0 = clean merge (no conflicts)
+              # 1 = conflicts exist
+              # >1 = error
+              merge_result = system(
                 "git", "merge-file", "-p", "--diff3",
                 "-L", "HEAD (yours)",
                 "-L", "base",
@@ -29,7 +33,12 @@ module Rails
               )
 
               output.rewind
-              output.read
+              merged_content = output.read
+
+              # Exit status is true (clean merge) or false (conflicts)
+              has_conflicts = !merge_result
+
+              { content: merged_content, has_conflicts: has_conflicts }
             ensure
               output.close
               output.unlink

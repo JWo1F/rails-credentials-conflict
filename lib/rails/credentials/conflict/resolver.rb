@@ -30,17 +30,23 @@ module Rails
           end
 
           base_content = get_base_version
-          merged_content = @merge_strategy.create_conflict_markers(
+          merge_result = @merge_strategy.create_conflict_markers(
             ours_content,
             base_content,
             theirs_content
           )
 
-          resolved_content = @merge_strategy.open_editor_for_resolution(merged_content)
+          if merge_result[:has_conflicts]
+            puts "Conflicts detected. Opening editor for manual resolution..."
+            resolved_content = @merge_strategy.open_editor_for_resolution(merge_result[:content])
 
-          if @merge_strategy.has_conflict_markers?(resolved_content)
-            puts "Warning: Conflict markers still present. Please resolve all conflicts."
-            exit 1
+            if @merge_strategy.has_conflict_markers?(resolved_content)
+              puts "Warning: Conflict markers still present. Please resolve all conflicts."
+              exit 1
+            end
+          else
+            puts "Changes in different sections detected. Auto-merged successfully."
+            resolved_content = merge_result[:content]
           end
 
           save_and_cleanup(resolved_content)
