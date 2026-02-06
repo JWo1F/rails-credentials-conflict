@@ -1,6 +1,15 @@
 # Rails Credentials Conflict
 
-A Rails gem that helps resolve git merge conflicts in encrypted credentials files by decrypting, merging, and re-encrypting them.
+[![Gem Version](https://badge.fury.io/rb/rails-credentials-conflict.svg)](https://rubygems.org/gems/rails-credentials-conflict)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.1.0-red.svg)](https://www.ruby-lang.org)
+[![Rails](https://img.shields.io/badge/rails-%3E%3D%206.0-red.svg)](https://rubyonrails.org)
+
+Resolve git merge conflicts in Rails encrypted credentials by decrypting, merging, and re-encrypting them. Works with merge, rebase, and cherry-pick.
+
+- [RubyGems](https://rubygems.org/gems/rails-credentials-conflict)
+- [Source Code](https://github.com/jwo1f/rails-credentials-conflict)
+- [Changelog](CHANGELOG.md)
 
 ## Problem
 

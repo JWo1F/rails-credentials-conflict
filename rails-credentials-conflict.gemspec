@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.authors = ["jwo1f"]
   spec.email = [""]
 
-  spec.summary = "Resolve Rails encrypted credentials conflicts during git merges"
-  spec.description = "A gem that helps resolve git merge conflicts in Rails encrypted credentials " \
-                     "by decrypting, merging, and re-encrypting the files."
+  spec.summary = "Resolve git merge conflicts in Rails encrypted credentials"
+  spec.description = "Resolve git merge conflicts in Rails encrypted credentials by decrypting, merging, " \
+                     "and re-encrypting them. Works with merge, rebase, and cherry-pick."
   spec.homepage = "https://github.com/jwo1f/rails-credentials-conflict"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"
