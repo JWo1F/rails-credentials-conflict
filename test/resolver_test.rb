@@ -113,22 +113,60 @@ class ResolverTest < Minitest::Test
     assert_includes @output.string, "identical"
   end
 
+  def test_resolve_auto_merges_different_sections
+    base_yaml = "line1: base\nline2: base\nline3: base\nline4: base\nline5: base"
+    ours_yaml = "line1: ours_changed\nline2: base\nline3: base\nline4: base\nline5: base"
+    theirs_yaml = "line1: base\nline2: base\nline3: base\nline4: base\nline5: theirs_changed"
+
+    creds_path = File.join(@tmpdir, "config", "credentials.yml.enc")
+    @service.save_encrypted("placeholder", creds_path)
+
+    resolver = Rails::Credentials::Conflict::Resolver.new(nil, output: @output)
+
+    encrypted_ours = @service.encrypt(ours_yaml)
+    encrypted_theirs = @service.encrypt(theirs_yaml)
+    encrypted_base = @service.encrypt(base_yaml)
+
+    stub_validate_conflict!(resolver) do
+      git_handler = resolver.instance_variable_get(:@git_handler)
+
+      version_map = { ours: encrypted_ours, theirs: encrypted_theirs, base: encrypted_base }
+      git_handler.stub(:get_version, ->(v) { version_map[v] }) do
+        stub_merge_labels(resolver) do
+          stub_stage(resolver) do
+            resolver.resolve
+          end
+        end
+      end
+    end
+
+    assert_includes @output.string, "Auto-merged successfully"
+  end
+
   private
 
-  def stub_validate_conflict!(resolver, &block)
+  def stub_validate_conflict!(resolver, &)
     git_handler = resolver.instance_variable_get(:@git_handler)
-    git_handler.stub(:validate_conflict!, nil, &block)
+    git_handler.stub(:validate_conflict!, nil, &)
   end
 
-  def stub_get_version(resolver, version, return_value, &block)
+  def stub_get_version(resolver, _version, return_value, &)
     git_handler = resolver.instance_variable_get(:@git_handler)
-    git_handler.stub(:get_version, ->(_v) { return_value }) do
-      yield
-    end
+    git_handler.stub(:get_version, ->(_v) { return_value }, &)
   end
 
-  def stub_stage(resolver, &block)
+  def stub_stage(resolver, &)
     git_handler = resolver.instance_variable_get(:@git_handler)
-    git_handler.stub(:stage_resolved_file!, nil, &block)
+    git_handler.stub(:stage_resolved_file!, nil, &)
+  end
+
+  def stub_merge_labels(resolver, &)
+    git_handler = resolver.instance_variable_get(:@git_handler)
+    labels = {
+      ours: "main (abc12345)",
+      base: "ancestor (00000000)",
+      theirs: "feature (def67890)"
+    }
+    git_handler.stub(:get_merge_labels, labels, &)
   end
 end

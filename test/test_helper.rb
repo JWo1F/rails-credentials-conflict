@@ -1,7 +1,10 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "fileutils"
+require "pathname"
 require "securerandom"
+require "stringio"
 require "tempfile"
 require "open3"
 require "rails/credentials/conflict"

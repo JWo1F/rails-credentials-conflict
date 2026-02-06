@@ -5,6 +5,12 @@ require "open3"
 module Rails
   module Credentials
     module Conflict
+      # Interacts with git to read conflict stages, detect merge state,
+      # and stage resolved files.
+      #
+      # Uses git's staging area to access the three versions of a
+      # conflicted file (base, ours, theirs) and determines labels
+      # for the merge participants.
       class GitConflictHandler
         STAGE_BASE = 1
         STAGE_OURS = 2
@@ -15,33 +21,44 @@ module Rails
           @relative_path = relative_path.to_s
         end
 
+        # Verifies that the credentials file exists and is in a conflicted
+        # state (UU or AA in +git status --porcelain+).
+        # Raises +Error+ otherwise.
         def validate_conflict!
-          unless File.exist?(@credentials_path)
-            raise Error, "Credentials file not found: #{@credentials_path}"
-          end
+          raise Error, "Credentials file not found: #{@credentials_path}" unless File.exist?(@credentials_path)
 
           git_status, status = Open3.capture2("git", "status", "--porcelain", @credentials_path)
           git_status = git_status.strip
 
-          unless status.success? && (git_status.start_with?("UU") || git_status.start_with?("AA"))
-            raise Error, "No git conflict detected for #{@credentials_path}"
-          end
+          return if status.success? && (git_status.start_with?("UU") || git_status.start_with?("AA"))
+
+          raise Error, "No git conflict detected for #{@credentials_path}"
         end
 
+        # Retrieves the encrypted content for the given +version+ (:base, :ours, or :theirs)
+        # from the git staging area. Returns an empty string on failure.
         def get_version(version)
           stage_number = stage_for_version(version)
-          content, status = Open3.capture2("git", "show", ":#{stage_number}:#{@relative_path}")
+          content, status = Open3.capture2(
+            "git", "show", ":#{stage_number}:#{@relative_path}",
+            binmode: true
+          )
           status.success? ? content.strip : ""
         end
 
+        # Stages the resolved credentials file with +git add+.
+        # Raises +Error+ if the command fails.
         def stage_resolved_file!
           _, status = Open3.capture2("git", "add", @credentials_path)
 
-          unless status.success?
-            raise Error, "Failed to stage resolved file: #{@credentials_path}"
-          end
+          return if status.success?
+
+          raise Error, "Failed to stage resolved file: #{@credentials_path}"
         end
 
+        # Returns a Hash of labels for the three merge participants
+        # (+:ours+, +:base+, +:theirs+), each containing a branch name
+        # and short SHA.
         def get_merge_labels
           head_ref = detect_head_ref
 

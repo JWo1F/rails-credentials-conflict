@@ -83,6 +83,62 @@ class GitConflictHandlerTest < Minitest::Test
     end
   end
 
+  def test_get_merge_labels_returns_all_three_labels
+    # Call order for get_merge_labels:
+    # 1. detect_head_ref: git rev-parse --verify MERGE_HEAD
+    # 2. get_current_branch: git rev-parse --abbrev-ref HEAD
+    # 3. get_short_sha("HEAD"): git rev-parse --short=8 HEAD
+    # 4. get_merge_base_sha: git rev-parse HEAD
+    # 5. get_merge_base_sha: git rev-parse MERGE_HEAD
+    # 6. get_merge_base_sha: git merge-base ...
+    # 7. get_incoming_branch: git name-rev --name-only MERGE_HEAD
+    # 8. get_short_sha(head_ref): git rev-parse --short=8 MERGE_HEAD
+    call_count = 0
+    fake_capture2 = lambda { |*_args, **_kwargs|
+      call_count += 1
+      case call_count
+      when 1 then ["abc123\n", mock_status(true)]
+      when 2 then ["main\n", mock_status(true)]
+      when 3 then ["abcd1234\n", mock_status(true)]
+      when 4 then ["aaaa\n", mock_status(true)]
+      when 5 then ["bbbb\n", mock_status(true)]
+      when 6 then ["cccccccc\n", mock_status(true)]
+      when 7 then ["feature\n", mock_status(true)]
+      when 8 then ["ef567890\n", mock_status(true)]
+      else ["", mock_status(false)]
+      end
+    }
+
+    Open3.stub(:capture2, fake_capture2) do
+      labels = @handler.get_merge_labels
+
+      assert_equal "main (abcd1234)", labels[:ours]
+      assert_match(/ancestor/, labels[:base])
+      assert_equal "feature (ef567890)", labels[:theirs]
+    end
+  end
+
+  def test_get_merge_labels_handles_failures_gracefully
+    # When all git commands fail, detect_head_ref falls through to default "MERGE_HEAD".
+    # We need enough mock_status calls for all the git commands.
+    statuses = Array.new(10) { mock_status(false) }
+    idx = 0
+    fake_capture2 = lambda { |*_args, **_kwargs|
+      result = ["", statuses[idx]]
+      idx += 1
+      result
+    }
+
+    Open3.stub(:capture2, fake_capture2) do
+      labels = @handler.get_merge_labels
+
+      assert_match(/HEAD/, labels[:ours])
+      assert_match(/unknown/, labels[:ours])
+      assert_match(/ancestor/, labels[:base])
+      assert_match(/unknown/, labels[:base])
+    end
+  end
+
   private
 
   def mock_status(success)

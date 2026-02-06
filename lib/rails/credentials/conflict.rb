@@ -10,6 +10,9 @@ require_relative "conflict/railtie" if defined?(Rails::Railtie)
 
 module Rails
   module Credentials
+    # Provides tooling to resolve git merge conflicts in Rails
+    # encrypted credentials files by decrypting, merging, and
+    # re-encrypting them.
     module Conflict
       class Error < StandardError; end
     end

@@ -6,5 +6,7 @@ source "https://rubygems.org"
 gemspec
 
 gem "irb"
-gem "rake", "~> 13.0"
 gem "minitest", "~> 5.0"
+gem "rake", "~> 13.0"
+gem "rubocop", "~> 1.0", require: false
+gem "rubocop-minitest", require: false

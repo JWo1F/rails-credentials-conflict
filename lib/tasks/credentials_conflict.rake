@@ -4,7 +4,7 @@ require "rails/credentials/conflict/resolver"
 
 namespace :credentials do
   namespace :conflict do
-    desc "Resolve credentials conflict by decrypting and merging (usage: rails credentials:conflict:resolve[environment])"
+    desc "Resolve credentials conflict by decrypting and merging"
     task :resolve, [:environment] => :environment do |_t, args|
       Rails::Credentials::Conflict::Resolver.new(args[:environment]).resolve
     rescue Rails::Credentials::Conflict::Error => e

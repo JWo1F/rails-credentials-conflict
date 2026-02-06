@@ -3,6 +3,12 @@
 module Rails
   module Credentials
     module Conflict
+      # Top-level orchestrator for resolving git merge conflicts in
+      # encrypted Rails credentials files.
+      #
+      # Coordinates between PathResolver, EncryptionService,
+      # GitConflictHandler, and MergeStrategy to decrypt conflicting
+      # versions, merge them, and re-encrypt the result.
       class Resolver
         attr_reader :environment
 
@@ -18,6 +24,9 @@ module Rails
           @merge_strategy = MergeStrategy.new(@encryption_service)
         end
 
+        # Decrypts both sides of a conflict, performs a three-way merge,
+        # and re-encrypts the resolved content. Opens an editor when
+        # automatic merge is not possible.
         def resolve
           @git_handler.validate_conflict!
 
@@ -56,14 +65,17 @@ module Rails
           log "Credentials successfully resolved and encrypted."
         end
 
+        # Resolves the conflict by keeping the current branch's version.
         def yours
           resolve_with_version(:ours, "your")
         end
 
+        # Resolves the conflict by keeping the incoming branch's version.
         def theirs
           resolve_with_version(:theirs, "their")
         end
 
+        # Resolves the conflict by keeping the common ancestor's version.
         def base
           resolve_with_version(:base, "base")
         end
@@ -78,9 +90,7 @@ module Rails
           @git_handler.validate_conflict!
 
           encrypted_content = @git_handler.get_version(version)
-          if encrypted_content.empty?
-            raise Error, "No #{label} version found."
-          end
+          raise Error, "No #{label} version found." if encrypted_content.empty?
 
           content = @encryption_service.decrypt(encrypted_content)
           save_and_stage(content)

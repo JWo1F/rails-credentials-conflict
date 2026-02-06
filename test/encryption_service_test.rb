@@ -18,6 +18,7 @@ class EncryptionServiceTest < Minitest::Test
   def test_round_trips_content
     original = "secret: value\napi_key: 12345"
     encrypted = @service.encrypt(original)
+
     assert_equal original, @service.decrypt(encrypted)
   end
 
@@ -61,6 +62,7 @@ class EncryptionServiceTest < Minitest::Test
       service = Rails::Credentials::Conflict::EncryptionService.new("/nonexistent/path", env_key: env_key_name)
 
       encrypted = service.encrypt("secret data")
+
       assert_equal "secret data", service.decrypt(encrypted)
     ensure
       ENV.delete(env_key_name)
@@ -68,13 +70,14 @@ class EncryptionServiceTest < Minitest::Test
   end
 
   def test_reads_key_from_rails_master_key_env
-    original_env = ENV["RAILS_MASTER_KEY"]
+    original_env = ENV.fetch("RAILS_MASTER_KEY", nil)
 
     begin
       ENV["RAILS_MASTER_KEY"] = @key
       service = Rails::Credentials::Conflict::EncryptionService.new("/nonexistent/path")
 
       encrypted = service.encrypt("secret data")
+
       assert_equal "secret data", service.decrypt(encrypted)
     ensure
       if original_env

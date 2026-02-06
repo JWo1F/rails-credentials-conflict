@@ -15,6 +15,7 @@ class MergeStrategyTest < Minitest::Test
 
   def test_detects_start_conflict_markers
     content = "<<<<<<< HEAD\nfoo\n=======\nbar\n>>>>>>> branch"
+
     assert @strategy.has_conflict_markers?(content)
   end
 
@@ -47,6 +48,7 @@ class MergeStrategyTest < Minitest::Test
     theirs = "key: theirs_value"
 
     result = @strategy.create_conflict_markers(ours, base, theirs, labels: @labels)
+
     assert result[:has_conflicts]
     assert_includes result[:content], "<<<<<<<"
     assert_includes result[:content], ">>>>>>>"
@@ -58,8 +60,22 @@ class MergeStrategyTest < Minitest::Test
     theirs = "line1: base\nline2: base\nline3: base\nline4: base\nline5: theirs_changed"
 
     result = @strategy.create_conflict_markers(ours, base, theirs, labels: @labels)
+
     refute result[:has_conflicts]
     assert_includes result[:content], "line1: ours_changed"
     assert_includes result[:content], "line5: theirs_changed"
+  end
+
+  def test_create_conflict_markers_raises_on_git_error
+    # Simulate git merge-file failing with exit code > 1 by stubbing Open3.capture2
+    fake_status = Minitest::Mock.new
+    fake_status.expect(:exitstatus, 128)
+
+    Open3.stub(:capture2, ["", fake_status]) do
+      error = assert_raises(Rails::Credentials::Conflict::Error) do
+        @strategy.create_conflict_markers("a", "b", "c", labels: @labels)
+      end
+      assert_match(/git merge-file failed/, error.message)
+    end
   end
 end
