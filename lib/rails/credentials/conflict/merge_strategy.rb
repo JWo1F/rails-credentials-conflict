@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "tempfile"
+require "yaml"
 
 module Rails
   module Credentials
@@ -18,10 +19,6 @@ module Rails
             output = Tempfile.new(["merged", ".yml"])
 
             begin
-              # git merge-file exit codes:
-              # 0 = clean merge (no conflicts)
-              # 1 = conflicts exist
-              # >1 = error
               merge_result = system(
                 "git", "merge-file", "-p", "--diff3",
                 "-L", labels[:ours],
@@ -35,7 +32,6 @@ module Rails
               output.rewind
               merged_content = output.read
 
-              # Exit status is true (clean merge) or false (conflicts)
               has_conflicts = !merge_result
 
               { content: merged_content, has_conflicts: has_conflicts }
@@ -50,13 +46,19 @@ module Rails
           content.include?(CONFLICT_MARKER_START) || content.include?(CONFLICT_MARKER_END)
         end
 
+        def validate_yaml!(content)
+          YAML.safe_load(content)
+        rescue Psych::SyntaxError => e
+          raise Error, "Resolved content is not valid YAML: #{e.message}"
+        end
+
         def open_editor_for_resolution(merged_content)
           Tempfile.create(["credentials_conflict", ".yml"]) do |tempfile|
             tempfile.write(merged_content)
             tempfile.flush
 
-            editor = ENV["EDITOR"] || "vim"
-            system("#{editor} #{tempfile.path}")
+            editor = ENV.fetch("EDITOR", "vim")
+            system(editor, tempfile.path)
 
             File.read(tempfile.path)
           end
@@ -66,21 +68,17 @@ module Rails
 
         def with_temp_files(*contents)
           temp_files = contents.map.with_index do |content, index|
-            Tempfile.new(["temp_#{index}", ".yml"])
+            file = Tempfile.new(["temp_#{index}", ".yml"])
+            file.write(content)
+            file.flush
+            file
           end
 
-          begin
-            temp_files.each_with_index do |file, index|
-              file.write(contents[index])
-              file.flush
-            end
-
-            yield(*temp_files.map(&:path))
-          ensure
-            temp_files.each do |file|
-              file.close
-              file.unlink
-            end
+          yield(*temp_files.map(&:path))
+        ensure
+          temp_files&.each do |file|
+            file.close
+            file.unlink
           end
         end
       end

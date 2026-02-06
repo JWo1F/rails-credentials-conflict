@@ -136,6 +136,7 @@ PLATFORMS
 
 DEPENDENCIES
   irb
+  minitest (~> 5.0)
   rails-credentials-conflict!
   rake (~> 13.0)
 

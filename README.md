@@ -58,7 +58,7 @@ The command will:
    >>>>>>> MERGE_HEAD (theirs)
    ```
 5. Open the file in your `$EDITOR` (defaults to vim)
-6. After you save and close, re-encrypt the resolved content
+6. After you save and close, validate YAML and re-encrypt the resolved content
 7. Stage the resolved file with git
 
 ### 2. Keep your version
@@ -105,43 +105,34 @@ The gem uses git's staging area to access all versions of the conflicted file:
 - Stage 3 contains "theirs" (their version)
 
 It then:
-1. Decrypts the versions using your local key file
+1. Decrypts the versions using your local key
 2. Performs the requested operation (merge, yours, theirs, or base)
-3. Re-encrypts the result
-4. Stages the resolved file
+3. Validates the resolved YAML
+4. Re-encrypts the result
+5. Stages the resolved file
+
+Works with merge, rebase, and cherry-pick conflicts.
 
 ## Requirements
 
-- Ruby >= 3.2.0
+- Ruby >= 3.1.0
 - Rails >= 6.0
 - Git repository with encrypted credentials
-- The appropriate key file must exist locally:
+- The appropriate encryption key must be available via one of:
+  - `RAILS_MASTER_KEY` environment variable
   - `config/master.key` for main credentials
   - `config/credentials/<environment>.key` for environment-specific credentials
 
-## Usage Notes
-
-For environment-specific credentials, pass the environment name in square brackets:
-
-```bash
-# Use square brackets for environment
-rails credentials:conflict:resolve[staging]
-rails credentials:conflict:yours[production]
-
-# Omit for main credentials
-rails credentials:conflict:resolve
-```
-
 ## Development
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake` to run the tests.
+After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake test` to run the tests.
 
 To install this gem onto your local machine, run `bundle exec rake install`.
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/yourusername/rails-credentials-conflict.
+Bug reports and pull requests are welcome on GitHub at https://github.com/jwo1f/rails-credentials-conflict.
 
 ## License
 
-The gem is available as open source under the terms of the MIT License.
+The gem is available as open source under the terms of the [MIT License](LICENSE.txt).

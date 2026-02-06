@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "open3"
+
 module Rails
   module Credentials
     module Conflict
@@ -9,8 +11,8 @@ module Rails
         STAGE_THEIRS = 3
 
         def initialize(credentials_path, relative_path)
-          @credentials_path = credentials_path
-          @relative_path = relative_path
+          @credentials_path = credentials_path.to_s
+          @relative_path = relative_path.to_s
         end
 
         def validate_conflict!
@@ -18,26 +20,35 @@ module Rails
             raise Error, "Credentials file not found: #{@credentials_path}"
           end
 
-          git_status = `git status --porcelain #{@credentials_path}`.strip
-          unless git_status.start_with?("UU") || git_status.start_with?("AA")
+          git_status, status = Open3.capture2("git", "status", "--porcelain", @credentials_path)
+          git_status = git_status.strip
+
+          unless status.success? && (git_status.start_with?("UU") || git_status.start_with?("AA"))
             raise Error, "No git conflict detected for #{@credentials_path}"
           end
         end
 
         def get_version(version)
           stage_number = stage_for_version(version)
-          `git show :#{stage_number}:#{@relative_path} 2>/dev/null`.strip
+          content, status = Open3.capture2("git", "show", ":#{stage_number}:#{@relative_path}")
+          status.success? ? content.strip : ""
         end
 
-        def cleanup
-          system("git add #{@credentials_path}")
+        def stage_resolved_file!
+          _, status = Open3.capture2("git", "add", @credentials_path)
+
+          unless status.success?
+            raise Error, "Failed to stage resolved file: #{@credentials_path}"
+          end
         end
 
         def get_merge_labels
+          head_ref = detect_head_ref
+
           {
-            ours: build_label(get_current_branch, get_commit_sha("HEAD")),
-            base: build_label("ancestor", get_merge_base_sha),
-            theirs: build_label(get_merge_branch, get_commit_sha("MERGE_HEAD"))
+            ours: build_label(get_current_branch, get_short_sha("HEAD")),
+            base: build_label("ancestor", get_merge_base_sha(head_ref)),
+            theirs: build_label(get_incoming_branch(head_ref), get_short_sha(head_ref))
           }
         end
 
@@ -52,37 +63,44 @@ module Rails
           end
         end
 
+        def detect_head_ref
+          %w[MERGE_HEAD CHERRY_PICK_HEAD REBASE_HEAD].each do |ref|
+            _, status = Open3.capture2("git", "rev-parse", "--verify", ref)
+            return ref if status.success?
+          end
+
+          "MERGE_HEAD"
+        end
+
         def build_label(branch_name, commit_sha)
           "#{branch_name} (#{commit_sha})"
         end
 
         def get_current_branch
-          branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
-          branch.empty? ? "HEAD" : branch
+          branch, status = Open3.capture2("git", "rev-parse", "--abbrev-ref", "HEAD")
+          branch = branch.strip
+          status.success? && !branch.empty? ? branch : "HEAD"
         end
 
-        def get_merge_branch
-          # Try to get the branch name from MERGE_HEAD
-          branch = `git name-rev --name-only MERGE_HEAD 2>/dev/null`.strip
-          return branch unless branch.empty?
-
-          # Fallback to MERGE_HEAD if name-rev fails
-          "MERGE_HEAD"
+        def get_incoming_branch(head_ref)
+          branch, status = Open3.capture2("git", "name-rev", "--name-only", head_ref)
+          branch = branch.strip
+          status.success? && !branch.empty? ? branch : head_ref
         end
 
-        def get_commit_sha(ref)
-          sha = `git rev-parse --short=8 #{ref} 2>/dev/null`.strip
-          sha.empty? ? "unknown" : sha
+        def get_short_sha(ref)
+          sha, status = Open3.capture2("git", "rev-parse", "--short=8", ref)
+          status.success? ? sha.strip : "unknown"
         end
 
-        def get_merge_base_sha
-          ours_sha = `git rev-parse HEAD 2>/dev/null`.strip
-          theirs_sha = `git rev-parse MERGE_HEAD 2>/dev/null`.strip
+        def get_merge_base_sha(head_ref)
+          ours_sha, s1 = Open3.capture2("git", "rev-parse", "HEAD")
+          theirs_sha, s2 = Open3.capture2("git", "rev-parse", head_ref)
 
-          return "unknown" if ours_sha.empty? || theirs_sha.empty?
+          return "unknown" unless s1.success? && s2.success?
 
-          base_sha = `git merge-base #{ours_sha} #{theirs_sha} 2>/dev/null`.strip
-          base_sha.empty? ? "unknown" : base_sha[0..7]
+          base_sha, s3 = Open3.capture2("git", "merge-base", ours_sha.strip, theirs_sha.strip)
+          s3.success? ? base_sha.strip[0..7] : "unknown"
         end
       end
     end

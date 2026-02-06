@@ -6,8 +6,9 @@ module Rails
       class Resolver
         attr_reader :environment
 
-        def initialize(environment = nil)
+        def initialize(environment = nil, output: $stdout)
           @environment = environment
+          @output = output
           @path_resolver = PathResolver.new(environment)
           @encryption_service = EncryptionService.new(@path_resolver.key_path)
           @git_handler = GitConflictHandler.new(
@@ -24,8 +25,8 @@ module Rails
           theirs_content = decrypt_version(:theirs)
 
           if ours_content == theirs_content
-            puts "No conflicts detected. Both versions are identical."
-            save_and_cleanup(ours_content)
+            log "No conflicts detected. Both versions are identical."
+            save_and_stage(ours_content)
             return
           end
 
@@ -39,20 +40,20 @@ module Rails
           )
 
           if merge_result[:has_conflicts]
-            puts "Conflicts detected. Opening editor for manual resolution..."
+            log "Conflicts detected. Opening editor for manual resolution..."
             resolved_content = @merge_strategy.open_editor_for_resolution(merge_result[:content])
 
             if @merge_strategy.has_conflict_markers?(resolved_content)
-              puts "Warning: Conflict markers still present. Please resolve all conflicts."
-              exit 1
+              raise Error, "Conflict markers still present. Please resolve all conflicts."
             end
           else
-            puts "Changes in different sections detected. Auto-merged successfully."
+            log "Changes in different sections detected. Auto-merged successfully."
             resolved_content = merge_result[:content]
           end
 
-          save_and_cleanup(resolved_content)
-          puts "Credentials successfully resolved and encrypted."
+          @merge_strategy.validate_yaml!(resolved_content)
+          save_and_stage(resolved_content)
+          log "Credentials successfully resolved and encrypted."
         end
 
         def yours
@@ -69,6 +70,10 @@ module Rails
 
         private
 
+        def log(message)
+          @output.puts(message)
+        end
+
         def resolve_with_version(version, label)
           @git_handler.validate_conflict!
 
@@ -78,8 +83,8 @@ module Rails
           end
 
           content = @encryption_service.decrypt(encrypted_content)
-          save_and_cleanup(content)
-          puts "Kept #{label} version of credentials."
+          save_and_stage(content)
+          log "Kept #{label} version of credentials."
         end
 
         def decrypt_version(version)
@@ -92,13 +97,14 @@ module Rails
           return "" if base_encrypted.empty?
 
           @encryption_service.decrypt(base_encrypted)
-        rescue
+        rescue StandardError => e
+          log "Warning: Could not decrypt base version (#{e.message}). Using empty base."
           ""
         end
 
-        def save_and_cleanup(content)
+        def save_and_stage(content)
           @encryption_service.save_encrypted(content, @path_resolver.credentials_path)
-          @git_handler.cleanup
+          @git_handler.stage_resolved_file!
         end
       end
     end
