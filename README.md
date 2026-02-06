@@ -37,6 +37,23 @@ And then execute:
 bundle install
 ```
 
+## Automatic merge driver (recommended)
+
+Register a custom git merge driver so that git can automatically decrypt, merge, and re-encrypt credentials during merge, rebase, and cherry-pick — resolving conflicts transparently when changes are in different sections.
+
+```bash
+rails credentials:conflict:install
+```
+
+This command:
+
+1. Adds a `rails-credentials` merge driver to your local `.git/config`
+2. Appends rules to `.gitattributes` so all `*.yml.enc` credentials files use it
+
+**How it works:** When git encounters a conflict in a credentials file it invokes the merge driver instead of producing encrypted gibberish with conflict markers. The driver decrypts all three versions (base, ours, theirs), runs a three-way merge, and re-encrypts the result. If the changes are in different sections the merge succeeds automatically (exit 0). If there is a real conflict the driver exits 1, git marks the file as conflicted, and you can fall back to the manual rake tasks below.
+
+> **Note:** `.gitattributes` should be committed so the whole team benefits. The `.git/config` entry is local — each developer runs `rails credentials:conflict:install` once after cloning.
+
 ## Usage
 
 When you encounter a merge conflict in your credentials file, you have four options:
